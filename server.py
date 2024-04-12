@@ -126,6 +126,7 @@ def create_interface():
         shared.gradio['temporary_text'] = gr.Textbox(visible=False)
 
         # Text Generation tab
+        ui_interview.create_ui()
         ui_chat.create_ui()
         ui_default.create_ui()
         ui_notebook.create_ui()
