@@ -41,7 +41,6 @@ from modules import (
     chat,
     training,
     ui,
-    ui_interview,
     ui_chat,
     ui_default,
     ui_file_saving,
@@ -127,7 +126,6 @@ def create_interface():
         shared.gradio['temporary_text'] = gr.Textbox(visible=False)
 
         # Text Generation tab
-        ui_interview.create_ui()
         ui_chat.create_ui()
         ui_default.create_ui()
         ui_notebook.create_ui()
@@ -138,7 +136,6 @@ def create_interface():
         ui_session.create_ui()  # Session tab
 
         # Generation events
-        ui_interview.create_event_handlers()
         ui_chat.create_event_handlers()
         ui_default.create_event_handlers()
         ui_notebook.create_event_handlers()
