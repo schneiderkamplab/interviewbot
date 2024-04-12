@@ -180,6 +180,7 @@ def generate_chat_prompt(user_input, state, **kwargs):
         return prompt
 
     prompt = make_prompt(messages)
+    print(prompt)
 
     # Handle truncation
     if shared.tokenizer is not None:
