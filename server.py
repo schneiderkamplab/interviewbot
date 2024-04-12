@@ -41,6 +41,7 @@ from modules import (
     chat,
     training,
     ui,
+    ui_interview,
     ui_chat,
     ui_default,
     ui_file_saving,
@@ -137,6 +138,7 @@ def create_interface():
         ui_session.create_ui()  # Session tab
 
         # Generation events
+        ui_interview.create_event_handlers()
         ui_chat.create_event_handlers()
         ui_default.create_event_handlers()
         ui_notebook.create_event_handlers()
