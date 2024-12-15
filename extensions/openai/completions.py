@@ -135,6 +135,7 @@ def convert_history(history):
     current_message = ""
     current_reply = ""
     user_input = ""
+    user_input_last = True
     system_message = ""
 
     # Multimodal: convert OpenAI format to multimodal extension format
@@ -153,8 +154,9 @@ def convert_history(history):
                     elif item['type'] == 'text' and isinstance(item['text'], str):
                         content = item['text']
 
-                if image_url and content:
+                if image_url:
                     new_history.append({"image_url": image_url, "role": "user"})
+                if content:
                     new_history.append({"content": content, "role": "user"})
             else:
                 new_history.append(entry)
@@ -188,6 +190,7 @@ def convert_history(history):
 
         if role == "user":
             user_input = content
+            user_input_last = True
             if current_message:
                 chat_dialogue.append([current_message, ''])
                 current_message = ""
@@ -195,6 +198,7 @@ def convert_history(history):
             current_message = content
         elif role == "assistant":
             current_reply = content
+            user_input_last = False
             if current_message:
                 chat_dialogue.append([current_message, current_reply])
                 current_message = ""
@@ -204,13 +208,13 @@ def convert_history(history):
         elif role == "system":
             system_message = content
 
-    # if current_message:
-    #     chat_dialogue.append([current_message, ''])
+    if not user_input_last:
+        user_input = ""
 
     return user_input, system_message, {'internal': chat_dialogue, 'visible': copy.deepcopy(chat_dialogue)}
 
 
-def chat_completions_common(body: dict, is_legacy: bool = False, stream=False) -> dict:
+def chat_completions_common(body: dict, is_legacy: bool = False, stream=False, prompt_only=False) -> dict:
     if body.get('functions', []):
         raise InvalidRequestError(message="functions is not supported.", param='functions')
 
@@ -231,7 +235,7 @@ def chat_completions_common(body: dict, is_legacy: bool = False, stream=False) -
             raise InvalidRequestError(message="messages: missing content", param='messages')
 
     # Chat Completions
-    object_type = 'chat.completions' if not stream else 'chat.completions.chunk'
+    object_type = 'chat.completion' if not stream else 'chat.completion.chunk'
     created_time = int(time.time())
     cmpl_id = "chatcmpl-%d" % (int(time.time() * 1000000000))
     resp_list = 'data' if is_legacy else 'choices'
@@ -310,20 +314,22 @@ def chat_completions_common(body: dict, is_legacy: bool = False, stream=False) -
         #    chunk[resp_list][0]["logprobs"] = None
         return chunk
 
+    # generate reply #######################################
+    prompt = generate_chat_prompt(user_input, generate_params, _continue=continue_)
+    if prompt_only:
+        yield {'prompt': prompt}
+        return
+
+    debug_msg({'prompt': prompt, 'generate_params': generate_params})
+
     if stream:
         yield chat_streaming_chunk('')
-
-    # generate reply #######################################
-    prompt = generate_chat_prompt(user_input, generate_params)
-    token_count = len(encode(prompt)[0])
-    debug_msg({'prompt': prompt, 'generate_params': generate_params})
 
     generator = generate_chat_reply(
         user_input, generate_params, regenerate=False, _continue=continue_, loading_message=False)
 
     answer = ''
     seen_content = ''
-    completion_token_count = 0
 
     for a in generator:
         answer = a['internal'][-1][1]
@@ -338,6 +344,7 @@ def chat_completions_common(body: dict, is_legacy: bool = False, stream=False) -
             chunk = chat_streaming_chunk(new_content)
             yield chunk
 
+    token_count = len(encode(prompt)[0])
     completion_token_count = len(encode(answer)[0])
     stop_reason = "stop"
     if token_count + completion_token_count >= generate_params['truncation_length'] or completion_token_count >= generate_params['max_new_tokens']:
@@ -422,8 +429,6 @@ def completions_common(body: dict, is_legacy: bool = False, stream=False):
                         prompt = decode(prompt)[0]
 
             prefix = prompt if echo else ''
-            token_count = len(encode(prompt)[0])
-            total_prompt_token_count += token_count
 
             # generate reply #######################################
             debug_msg({'prompt': prompt, 'generate_params': generate_params})
@@ -433,6 +438,8 @@ def completions_common(body: dict, is_legacy: bool = False, stream=False):
             for a in generator:
                 answer = a
 
+            token_count = len(encode(prompt)[0])
+            total_prompt_token_count += token_count
             completion_token_count = len(encode(answer)[0])
             total_completion_token_count += completion_token_count
             stop_reason = "stop"
